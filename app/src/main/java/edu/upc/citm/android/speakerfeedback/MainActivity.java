@@ -6,6 +6,7 @@ import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -14,6 +15,7 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -30,6 +32,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView textview;
     private String userId;
     private ListenerRegistration roomregistration, usersregistration;
+    private TextView numusers;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,9 +41,12 @@ public class MainActivity extends AppCompatActivity {
 
         textview = findViewById(R.id.textview);
         getOrRegisterUser();
+        numusers=findViewById(R.id.num_users);
 
 
 
+    }
+    public void onClickUsers(View view){
 
     }
    private EventListener<DocumentSnapshot> roomListener=new EventListener<DocumentSnapshot>() {
@@ -67,6 +73,7 @@ public class MainActivity extends AppCompatActivity {
                 nomsUsuaris+=doc.getString("name")+"\n";
             }
             textview.setText(nomsUsuaris);
+            numusers.setText(String.format("%d", documentSnapshots.size()));
         }
     };
     protected void onStart(){
@@ -81,6 +88,12 @@ public class MainActivity extends AppCompatActivity {
         usersregistration.remove();
     }
 
+    @Override
+    protected void onDestroy() {
+        exitRoom();
+        super.onDestroy();
+    }
+
     private void getOrRegisterUser() {
         // Busquem a les preferències de l'app l'ID de l'usuari per saber si ja s'havia registrat
         SharedPreferences prefs = getSharedPreferences("config", MODE_PRIVATE);
@@ -93,7 +106,16 @@ public class MainActivity extends AppCompatActivity {
         } else {
             // Ja està registrat, mostrem el id al Log
             Log.i("SpeakerFeedback", "userId = " + userId);
+            enterRoom();
         }
+    }
+
+    private void enterRoom() {
+        db.collection("users").document(userId).update("room", "testroom");
+    }
+
+    private void exitRoom() {
+        db.collection("users").document(userId).update("room", FieldValue.delete());
     }
 
     @Override
@@ -126,6 +148,7 @@ public class MainActivity extends AppCompatActivity {
                 prefs.edit()
                         .putString("userId", userId)
                         .commit();
+                enterRoom();
                 Log.i("SpeakerFeedback", "New user: userId = " + userId);
             }
         }).addOnFailureListener(new OnFailureListener() {
