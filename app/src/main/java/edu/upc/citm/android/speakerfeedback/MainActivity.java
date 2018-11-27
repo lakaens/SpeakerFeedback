@@ -29,26 +29,23 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REGISTER_USER = 0;
     private FirebaseFirestore db = FirebaseFirestore.getInstance();
-    private TextView textview;
     private String userId;
     private ListenerRegistration roomregistration, usersregistration;
-    private TextView numusers;
+    private TextView num_users;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        textview = findViewById(R.id.textview);
+
         getOrRegisterUser();
-        numusers=findViewById(R.id.num_users);
+        num_users=findViewById(R.id.num_usersview);
 
 
 
     }
-    public void onClickUsers(View view){
 
-    }
    private EventListener<DocumentSnapshot> roomListener=new EventListener<DocumentSnapshot>() {
         @Override
         public void onEvent(DocumentSnapshot documentSnapshot, FirebaseFirestoreException e) {
@@ -72,8 +69,8 @@ public class MainActivity extends AppCompatActivity {
             for(DocumentSnapshot doc:documentSnapshots){
                 nomsUsuaris+=doc.getString("name")+"\n";
             }
-            textview.setText(nomsUsuaris);
-            numusers.setText(String.format("%d", documentSnapshots.size()));
+
+            num_users.setText(String.format("%d", documentSnapshots.size()));
         }
     };
     protected void onStart(){
@@ -133,6 +130,11 @@ public class MainActivity extends AppCompatActivity {
             default:
                 super.onActivityResult(requestCode, resultCode, data);
         }
+    }
+    public void ShowUsers(View view) {
+    Intent intent=new Intent(this,UsersListActivity.class);
+    startActivity(intent);
+
     }
 
     private void registerUser(String name) {
