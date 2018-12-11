@@ -10,9 +10,13 @@ public class Poll {
     private boolean open;
     private Date start, end;
     private List<Integer> results;
+    private String id_poll;
 
     Poll(){}
 
+    public void setPoll_id(String id_poll){
+        this.id_poll=id_poll;
+    }
     public String getQuestion() {
         return question;
     }
