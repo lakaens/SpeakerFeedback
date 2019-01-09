@@ -66,6 +66,7 @@ public class FirestoreListenerService extends Service {
                 .build();
         startForeground(1,notification);
     }
+
     private void CreatePollNotification(Poll poll){
         Intent intent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, 0);

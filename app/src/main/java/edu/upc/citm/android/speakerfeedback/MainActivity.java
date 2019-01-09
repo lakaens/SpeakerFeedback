@@ -33,6 +33,7 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,7 @@ import java.util.Map;
 public class MainActivity extends AppCompatActivity {
 
     private static final int REGISTER_USER = 0;
+    private static final int INSERT_ROOM_ID = 0;
     private FirebaseFirestore db = FirebaseFirestore.getInstance();
     private String userId;
     private ListenerRegistration roomregistration, usersregistration, pollsregistration;
@@ -47,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView num_users;
     private RecyclerView polls_view;
     private Adapter adapter;
-    private Button vote_button;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,13 +63,13 @@ public class MainActivity extends AppCompatActivity {
         polls_view.setLayoutManager(new LinearLayoutManager(this));
         polls_view.setAdapter(adapter);
 
-        vote_button=findViewById(R.id.votebutton);
+
         getOrRegisterUser();
-        startFirestoreListenerService();
+
     }
     private void startFirestoreListenerService(){
         Intent intent = new Intent(this,FirestoreListenerService.class);
-        intent.putExtra("room", "testroom");
+        intent.putExtra("room", "room_id");
         startService(intent);
     }
     private void stopFirestoreListenerService(){
@@ -77,12 +79,21 @@ public class MainActivity extends AppCompatActivity {
    private EventListener<DocumentSnapshot> roomListener=new EventListener<DocumentSnapshot>() {
         @Override
         public void onEvent(DocumentSnapshot documentSnapshot, FirebaseFirestoreException e) {
-            if(e!=null){
-                Log.e("SpeakerFeedback","Error al rebre rooms/testroom",e);
+            if (e != null) {
+                Log.e("SpeakerFeedback", "Error al rebre rooms/testroom", e);
                 return;
+                if(documentSnapshot.getBoolean("open") == false) {
+                    stopFirestoreListenerService();
+                    db.collection("users").document(userId).update(
+                            "room", FieldValue.delete());
+                    SelectRoom();
+                    finish();
+                }
+                else {
+                    String name = documentSnapshot.getString("name");
+                    setTitle(name);
+                }
             }
-            String name=documentSnapshot.getString("name");
-            setTitle(name);
         }
     };
     private EventListener<QuerySnapshot> usersListener=new EventListener<QuerySnapshot>() {
@@ -92,12 +103,6 @@ public class MainActivity extends AppCompatActivity {
                 Log.e("SpeakerFeedback","Error al rebre usuaris dins d'un room",e);
                 return;
             }
-            //textview.setText(String.format("Numuser: %d",documentSnapshots.size()));
-            String nomsUsuaris="";
-            for(DocumentSnapshot doc:documentSnapshots){
-                nomsUsuaris+=doc.getString("name")+"\n";
-            }
-
             num_users.setText(String.format("%d", documentSnapshots.size()));
         }
     };
@@ -149,16 +154,21 @@ public class MainActivity extends AppCompatActivity {
         } else {
             // Ja està registrat, mostrem el id al Log
             Log.i("SpeakerFeedback", "userId = " + userId);
-            enterRoom();
+
         }
     }
 
-    private void enterRoom() {
-        db.collection("users").document(userId).update("room", "testroom");
+    private void enterRoom() {db.collection("users").document(userId).update("room", "room_id","last_active", new Date());
+        startFirestoreListenerService();
     }
 
     private void exitRoom() {
         db.collection("users").document(userId).update("room", FieldValue.delete());
+    }
+
+    private void SelectRoom() {
+        Intent intent = new Intent(this, EnterRoomID.class);
+        startActivityForResult(intent,INSERT_ROOM_ID);
     }
 
     @Override
@@ -236,12 +246,10 @@ public class MainActivity extends AppCompatActivity {
                 holder.labelview.setVisibility(View.VISIBLE);
                 if (poll.isOpen()) {
                     holder.labelview.setText("Active");
-                    vote_button.setTextColor(0xFF00AA00);
-                    vote_button.setClickable(true);
+
                 } else {
                     holder.labelview.setText("Previous");
-                    vote_button.setTextColor(0xFFAA0000);
-                    vote_button.setClickable(false);
+
 
                 }
             } else {
@@ -264,31 +272,7 @@ public class MainActivity extends AppCompatActivity {
             return polls.size();
         }
     }
-    public void onClickVoteButton(View view) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
 
-        String[] options = new String[polls.get(0).getOptions().size()];
-        int i = 0;
-        for (String string : polls.get(0).getOptions()) {
-            options[i] = string;
-            ++i;
-        }
-        builder.setTitle(polls.get(0).getQuestion()).setItems(options, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                Map<String, Object> map = new HashMap<>();
-                map.put("poll id", polls.get(0).getHash_question());
-                map.put("option", which);
-                //TODO: revise this
-                db.collection("rooms").document("testroom").collection("votes").document(userId).set(map);
-
-            }
-        });
-
-        AlertDialog dialog = builder.create();
-        dialog.show();
-
-    }
     public boolean onCreateOptionsMenu(Menu menu){
         MenuInflater menuInflater=getMenuInflater();
         menuInflater.inflate(R.menu.log_out_menu, menu);
