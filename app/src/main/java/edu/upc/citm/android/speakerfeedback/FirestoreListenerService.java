@@ -25,8 +25,6 @@ public class FirestoreListenerService extends Service {
         super.onCreate();
 
         Log.i("SpeakerFeedback","FirestoreListenerService.onCreate");
-        db.collection("rooms").document("testroom").collection("polls").whereEqualTo("open", true)
-                .addSnapshotListener(pollslistener);
 
     }
 
@@ -35,54 +33,63 @@ public class FirestoreListenerService extends Service {
         @Override
         public void onEvent(QuerySnapshot documentSnapshots, FirebaseFirestoreException e) {
             if (e != null) {
-                Log.e("SpeakerFeedback", "Error al rebre la llista de polls", e);
+                Log.e("SpeakerFeedback", "Error al rebre polls", e);
                 return;
             }
-            Log.i("SpeakerFeedback", "Service: received open polls");
-            for (DocumentSnapshot doc : documentSnapshots) {
+
+            for (DocumentSnapshot doc : documentSnapshots)
+            {
                 Poll poll = doc.toObject(Poll.class);
-                poll.setPoll_id(doc.getId());
-                CreatePollNotification(poll);
+                if(poll.isOpen())
+                {
+                    Log.d("SpeakerFeedback", poll.getQuestion());
+
+                    Intent intent = new Intent(FirestoreListenerService.this, MainActivity.class);
+                    PendingIntent pending_intent = PendingIntent.getActivity(FirestoreListenerService.this, 0, intent, 0);
+
+                    Notification notification = new NotificationCompat.Builder(FirestoreListenerService.this, App.CHANNEL_ID)
+                            .setContentTitle("New poll: " +String.format(poll.getQuestion()))
+                            .setSmallIcon(R.drawable.ic_message)
+                            .setContentIntent(pending_intent)
+                            .setVibrate(new long[] { 250, 250, 250, 250, 250 })
+                            .setAutoCancel(true)
+                            .build();
+
+                    startForeground(1, notification);
+                }
             }
         }
     };
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (!active) {
-            active = true;
-            CreateForegroundNotification();
+        Log.i("SpeakerFeecback", "FireStoreListenerService.onStartCommand");
+
+        if(!active){
+            String roomID = intent.getStringExtra("room");
+            if(!roomID.isEmpty())
+            {
+                db.collection("rooms").document(roomID).collection("polls").whereEqualTo("open",true).addSnapshotListener(pollslistener);
+                CreateForegroundNotification(roomID);
+                active = true;
+            }
         }
-       return START_NOT_STICKY;
+        return START_NOT_STICKY;
     }
 
-    private void CreateForegroundNotification() {
+    private void CreateForegroundNotification(String room_id) {
         Intent intent = new Intent(this,MainActivity.class);
         PendingIntent pendingIntent=PendingIntent.getActivity(this,0,intent,0);
-        //TODO: Crear una notificacio i cridar startforeground perque el servei segueixi funcionant
+
         Notification notification= new NotificationCompat.Builder(this, App.CHANNEL_ID)
-                .setContentTitle(String.format("Connectat a testroom"))
+                .setContentTitle(String.format("Connectat a" + room_id))
                 .setSmallIcon(R.drawable.ic_message)
                 .setContentIntent(pendingIntent)
                 .build();
         startForeground(1,notification);
+        active=true;
     }
 
-    private void CreatePollNotification(Poll poll){
-        Intent intent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, 0);
 
-        Notification notification = new NotificationCompat.Builder(this, App.CHANNEL_ID)
-                .setContentTitle("New Poll:" + String.format(poll.getQuestion()))
-                .setSmallIcon(R.drawable.ic_message)
-                .setContentIntent(pendingIntent)
-                .setVibrate(new long[]{100, 200, 100, 200, 100, 200})
-                .setAutoCancel(true)
-                .setPriority(NotificationManager.IMPORTANCE_HIGH)
-                .build();
-
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
-        notificationManager.notify(2, notification);
-    }
     @Override
     public void onDestroy() {
         Log.i("SpeakerFeedback","FirestoreListenerService.onDestroy");

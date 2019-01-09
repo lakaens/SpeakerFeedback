@@ -138,7 +138,6 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void getOrRegisterUser() {
-        // Busquem a les preferències de l'app l'ID de l'usuari per saber si ja s'havia registrat
         SharedPreferences prefs = getSharedPreferences("config", MODE_PRIVATE);
         userId = prefs.getString("userId", null);
         if (userId == null) {
@@ -158,6 +157,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void exitRoom() {
+        stopFirestoreListenerService();
         db.collection("users").document(userId).update("room", FieldValue.delete());
         SelectRoom();
     }
@@ -174,6 +174,7 @@ public class MainActivity extends AppCompatActivity {
                 if (resultCode == RESULT_OK) {
                     String name = data.getStringExtra("name");
                     registerUser(name);
+                    SelectRoom();
                 } else {
                     Toast.makeText(this, "Has de registrar un nom", Toast.LENGTH_SHORT).show();
                     finish();
@@ -245,6 +246,36 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+    public void onPollClicked(int pos){
+
+        Poll poll = polls.get(pos);
+        if(!poll.isOpen()){
+            return;
+        }
+
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+        builder.setTitle(poll.getQuestion());
+        String[] options = new String[poll.getOptions().size()];
+
+        for(int i = 0; i < poll.getOptions().size(); i++){
+            options[i] = poll.getOptions().get(i);
+        }
+
+        builder.setItems(options, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+
+                Map<String, Object> map = new HashMap<String, Object>();
+                map.put("pollid", polls.get(0).getId());
+                map.put("option", which);
+                db.collection("rooms").document("room_id").collection("votes").document(userId).set(map);
+
+            }
+        });
+
+        builder.create().show();
+
+    }
     class ViewHolder extends RecyclerView.ViewHolder{
         private TextView labelview;
         private TextView questionview;
@@ -256,6 +287,13 @@ public class MainActivity extends AppCompatActivity {
             labelview = itemView.findViewById(R.id.textview);
             questionview = itemView.findViewById(R.id.question);
             optionsview = itemView.findViewById(R.id.option);
+            cardview.setOnClickListener(new View.OnClickListener(){
+                public void onClick(View v) {
+                    int pos = getAdapterPosition();
+                    onPollClicked(pos);
+                }
+            });
+
         }
     }
     class Adapter extends RecyclerView.Adapter<ViewHolder>{

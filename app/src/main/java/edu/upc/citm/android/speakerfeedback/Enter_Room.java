@@ -35,7 +35,7 @@ public class Enter_Room extends AppCompatActivity{
 
         if(room_id.equals(""))
         {
-            Toast.makeText(this,"Enter a room id :/", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this,"Room id needed.", Toast.LENGTH_SHORT).show();
         }
         else
         {
@@ -45,7 +45,7 @@ public class Enter_Room extends AppCompatActivity{
                     Log.i("SpeakerFeedback", documentSnapshot.toString());
                     if (documentSnapshot.exists() && documentSnapshot.contains("open")) {
                         if (documentSnapshot.contains("password") && !documentSnapshot.getString("password").isEmpty()) { // Contains password
-                            comparePasswordPopUp(documentSnapshot.get("password").toString());
+                            Password(documentSnapshot.get("password").toString());
                         } else {
                             Intent data = new Intent();
                             data.putExtra("room_id", enter_room.getText().toString());
@@ -72,7 +72,7 @@ public class Enter_Room extends AppCompatActivity{
             });
         }
     }
-    protected  void comparePasswordPopUp(final String password)
+    protected  void Password(final String password)
     {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Enter password:");
