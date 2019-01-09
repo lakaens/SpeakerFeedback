@@ -3,6 +3,7 @@ package edu.upc.citm.android.speakerfeedback;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -41,7 +42,7 @@ import java.util.Map;
 public class MainActivity extends AppCompatActivity {
 
     private static final int REGISTER_USER = 0;
-    private static final int INSERT_ROOM_ID = 0;
+    private static final int INSERT_ROOM_ID = 1;
     private FirebaseFirestore db = FirebaseFirestore.getInstance();
     private String userId;
     private ListenerRegistration roomregistration, usersregistration, pollsregistration;
@@ -49,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView num_users;
     private RecyclerView polls_view;
     private Adapter adapter;
+    private String room_id;
 
 
     @Override
@@ -82,7 +84,8 @@ public class MainActivity extends AppCompatActivity {
             if (e != null) {
                 Log.e("SpeakerFeedback", "Error al rebre rooms/testroom", e);
                 return;
-                if(documentSnapshot.getBoolean("open") == false) {
+            }
+                if(!documentSnapshot.contains("open") || !documentSnapshot.getBoolean("open")) {
                     stopFirestoreListenerService();
                     db.collection("users").document(userId).update(
                             "room", FieldValue.delete());
@@ -94,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
                     setTitle(name);
                 }
             }
-        }
+
     };
     private EventListener<QuerySnapshot> usersListener=new EventListener<QuerySnapshot>() {
         @Override
@@ -123,24 +126,16 @@ public class MainActivity extends AppCompatActivity {
         }
     };
     protected void onStart(){
+
+        if(room_id!= null) {
+            roomregistration = db.collection("rooms").document(room_id).addSnapshotListener(roomListener);
+            usersregistration = db.collection("users").whereEqualTo("room", room_id).addSnapshotListener(usersListener);
+            pollsregistration = db.collection("rooms").document(room_id).collection("polls").orderBy("start", Query.Direction.DESCENDING).addSnapshotListener(pollListener);
+        }
         super.onStart();
-
-        roomregistration=db.collection("rooms").document("testroom").addSnapshotListener(roomListener);
-        usersregistration=db.collection("users").whereEqualTo("room","testroom").addSnapshotListener(usersListener);
-        pollsregistration=db.collection("rooms").document("testroom").collection("polls").orderBy("start", Query.Direction.DESCENDING).addSnapshotListener(pollListener);
-    }
-    protected void onStop(){
-        super.onStop();
-        roomregistration.remove();
-        usersregistration.remove();
-        pollsregistration.remove();
     }
 
-    @Override
-    protected void onDestroy() {
-        exitRoom();
-        super.onDestroy();
-    }
+
 
     private void getOrRegisterUser() {
         // Busquem a les preferències de l'app l'ID de l'usuari per saber si ja s'havia registrat
@@ -164,10 +159,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void exitRoom() {
         db.collection("users").document(userId).update("room", FieldValue.delete());
+        SelectRoom();
     }
 
     private void SelectRoom() {
-        Intent intent = new Intent(this, EnterRoomID.class);
+        Intent intent = new Intent(this, Enter_Room.class);
         startActivityForResult(intent,INSERT_ROOM_ID);
     }
 
@@ -183,9 +179,39 @@ public class MainActivity extends AppCompatActivity {
                     finish();
                 }
                 break;
+            case INSERT_ROOM_ID:
+                room_id=data.getStringExtra("room_id");
+                startFirestoreListenerService();
+                enterRoom();
+                break;
             default:
                 super.onActivityResult(requestCode, resultCode, data);
         }
+    }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.log_out_menu, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()){
+            case R.id.users_item:
+                Intent intent = new Intent(this, UsersListActivity.class);
+                startActivity(intent);
+                break;
+            case R.id.log_out_item:
+                exitRoom();
+                db.collection("users").document(userId).delete();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    deleteSharedPreferences("config");
+                }
+                Intent intent2 = new Intent(this, RegisterUserActivity.class);
+                startActivityForResult(intent2, REGISTER_USER);
+                break;
+        }
+        return super.onOptionsItemSelected(item);
     }
     public void ShowUsers(View view) {
     Intent intent=new Intent(this,UsersListActivity.class);
@@ -273,21 +299,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public boolean onCreateOptionsMenu(Menu menu){
-        MenuInflater menuInflater=getMenuInflater();
-        menuInflater.inflate(R.menu.log_out_menu, menu);
-        return true;
-    }
-    public boolean onOptionsItemSelected(MenuItem menuItem){
-        switch(menuItem.getItemId()){
-            case R.id.log_out:
-            {
-                stopFirestoreListenerService();
-                finish();
-            }
-        }
-        return true;
-    }
 }
 
 
